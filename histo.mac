@@ -1,0 +1,12 @@
+plot	expand 1.0001
+	data ages.dat 
+	read ages 2 
+	set x = 0,10, 1
+	set y = histogram(ages:x)
+	limits 5.0 9.0 0 30 
+	box
+	ltype 0
+	histogram x y
+        connect x y
+	xlabel Stellar Ages \t
+	ylabel Frequency \t

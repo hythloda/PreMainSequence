@@ -1,0 +1,148 @@
+c	Program to interpolate DM93 and Swenson 93 PMS tracks
+c       to get masses and ages.    Input is taken from a file
+c	that has log(T) in the first column, log(L/Lsun) in the
+c       second column and a 10 char name in the third column.
+c	masses and ages for S93 and DM93 tracks are printed to
+c       the screen.  Not reliable if stars are outside tracks,
+c	though program will try to interpolate these cases.
+c       Program needs a file of isochrones that has log (age)
+c	as the first number, then one pair of log(T) log(L) for
+c       each mass, then another log(age), etc. ........ph 8/3/93
+
+
+	real m(20), age(15), t(15,20), l(15,20), zlum(15), zmass(15)
+	real ms(21), sage(16), ts(16,21), ls(16,21), slum(16), smass(16)
+	real lobs, mass1, mass2
+
+	character*80 fname
+	character*10 name
+
+c       kages are number of isochrones for DM93, nmasses are number of
+c       masses, actual masses are m(i)
+c       ksages and nsmasses are these numbers for the S93 tracks; masses are ms(i)
+c       change the dimension statements too if you add isochrones or masses.
+
+	kages=7  !15
+	ksages=16
+	nmasses=20 !7
+	nsmasses=21
+	data m/0.10,0.15,0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.8,2.0,2.5/
+	data ms/0.15,0.20,0.25,0.35,0.40,0.45,0.50,0.60,0.70,0.75,0.80,0.90,1.0,1.2,1.5,1.6,1.7,1.8,2.0,2.2,2.5/
+
+c	   Open isochrone files
+	open (unit=20, file="AlexCM.iso", status='old', err=1000)
+	open (unit=21, file="swen1.iso", status='old', err=1005)
+
+c	   Read in ages and masses for S93 tracks and DM93 tracks with CM convection and Alexander opacities
+
+	do 401 jj=1, ksages
+	read(21,*,err=1020) sage(jj)
+	do 400 num = 1, nsmasses
+		read(21,*,err=1020) ts(jj,num), ls(jj,num)
+ 400	continue
+ 401	continue
+
+	do 101 kk=1, kages
+	read(20,*,err=1010) age(kk)
+	do 100 n = 1, nmasses
+		read(20,*,err=1010) t(kk,n), l(kk,n)
+ 100	continue
+ 101	continue
+
+c	   Start doing individual stars
+	write(6,'("Enter filename of observed log(Te), Log(L/Lo), name: ",$)')
+	read(5,'(a)') fname
+	open(unit=22, file=fname, status='old', err=1001)
+	write(6,'("             DM93 tracks      Swenson tracks ")')
+	write(6,'("  Name    log (age)    Mass        log(age)    Mass      Log(T)        Log(L)")')
+
+	do 2500 ii=1, 1000
+	read(22,*,end=9000,err=1025) tobs, lobs, name
+
+	do 200 k = 1, kages
+	ncrit=0
+	do 190 n = 1, nmasses
+		if(tobs.ge.t(k,n)) ncrit=n
+ 190	continue
+	if (ncrit.eq.nmasses) then
+		zlum(k) = l(k,nmasses) + (tobs-t(k,nmasses))/(t(k,nmasses)-t(k,nmasses-1))*(l(k,nmasses)-l(k,nmasses-1))
+		zmass(k) = m(nmasses) + (tobs-t(k,nmasses))/(t(k,nmasses)-t(k,nmasses-1))*(m(nmasses)-m(nmasses-1))
+	else if (ncrit.eq.0) then
+		zlum(k) = l(k,1) - (l(k,2)-l(k,1))*(tobs-t(k,1))/(t(k,2)-t(k,1))
+		zmass(k) = m(1) - (m(2)-m(1))*(tobs-t(k,1))/(t(k,2)-t(k,1))
+	else
+		zlum(k) = l(k,ncrit) + (l(k,ncrit+1)-l(k,ncrit))*(tobs-t(k,ncrit))/(t(k,ncrit+1)-t(k,ncrit))
+		zmass(k) = m(ncrit) + (m(ncrit+1)-m(ncrit))*(tobs-t(k,ncrit))/(t(k,ncrit+1)-t(k,ncrit))
+	end if
+ 200	continue
+
+	kcrit=0
+	do 300 k = 1, kages
+		if(lobs.lt.zlum(k)) kcrit=k
+ 300	continue
+	if (kcrit.eq.0) then
+		age1 = age(1) - (age(2)-age(1))*(lobs-zlum(1))/(zlum(1)-zlum(2))
+		mass1 = zmass(1) - (zmass(2)-zmass(1))*(lobs-zlum(1))/(zlum(1)-zlum(2))
+	else if (kcrit.eq.kages) then
+		age1 = age(kages) + (age(kages)-age(kages-1))*(zlum(kages)-lobs)/(zlum(kages-1)-zlum(kages))
+		mass1 = zmass(kages) + (zmass(kages)-zmass(kages-1))*(zlum(kages)-lobs)/(zlum(kages-1)-zlum(kages))
+	else
+		age1 = age(kcrit) + (age(kcrit+1)-age(kcrit))*(zlum(kcrit)-lobs)/(zlum(kcrit)-zlum(kcrit+1))
+		mass1 = zmass(kcrit) + (zmass(kcrit+1)-zmass(kcrit))*(zlum(kcrit)-lobs)/(zlum(kcrit)-zlum(kcrit+1))
+	end if
+
+	do 500 k = 1, ksages
+	ncrit=0
+	do 490 n = 1, nsmasses
+		if(tobs.ge.ts(k,n)) ncrit=n
+ 490	continue
+	if (ncrit.eq.nsmasses) then
+		slum(k) = ls(k,nsmasses) + (tobs-ts(k,nsmasses))/(ts(k,nsmasses)-ts(k,nsmasses-1))*(ls(k,nsmasses)-ls(k,nsmasses-1))
+		smass(k) = ms(nsmasses) + (tobs-ts(k,nsmasses))/(ts(k,nsmasses)-ts(k,nsmasses-1))*(ms(nsmasses)-ms(nsmasses-1))
+	else if (ncrit.eq.0) then
+		slum(k) = ls(k,1) - (ls(k,2)-ls(k,1))*(tobs-ts(k,1))/(ts(k,2)-ts(k,1))
+		smass(k) = ms(1) - (ms(2)-ms(1))*(tobs-ts(k,1))/(ts(k,2)-ts(k,1))
+	else
+		slum(k) = ls(k,ncrit) + (ls(k,ncrit+1)-ls(k,ncrit))*(tobs-ts(k,ncrit))/(ts(k,ncrit+1)-ts(k,ncrit))
+		smass(k) = ms(ncrit) + (ms(ncrit+1)-ms(ncrit))*(tobs-ts(k,ncrit))/(ts(k,ncrit+1)-ts(k,ncrit))
+	end if
+ 500	continue
+
+	kcrit=0
+	do 600 k = 1, ksages
+		if(lobs.lt.slum(k)) kcrit=k
+ 600	continue
+	if (kcrit.eq.0) then
+		age2 = sage(1) - (sage(2)-sage(1))*(lobs-slum(1))/(slum(1)-slum(2))
+		mass2 = smass(1) - (smass(2)-smass(1))*(lobs-slum(1))/(slum(1)-slum(2))
+	else if (kcrit.eq.ksages) then
+		age2 = sage(ksages) + (sage(ksages)-sage(ksages-1))*(slum(ksages)-lobs)/(slum(ksages-1)-slum(ksages))
+		mass2 = smass(ksages) + (smass(ksages)-smass(ksages-1))*(slum(ksages)-lobs)/(slum(ksages-1)-slum(ksages))
+	else
+		age2 = sage(kcrit) + (sage(kcrit+1)-sage(kcrit))*(slum(kcrit)-lobs)/(slum(kcrit)-slum(kcrit+1))
+		mass2 = smass(kcrit) + (smass(kcrit+1)-smass(kcrit))*(slum(kcrit)-lobs)/(slum(kcrit)-slum(kcrit+1))
+	end if
+
+	write(6,'(a,1x,f10.2,1x,f10.2,3x,f8.2,4x,f8.2,2x,f8.3,2x,f8.2)') name, age1, mass1, age2, mass2, tobs, lobs
+c	write(6,'(a,2x,f4.2,4x,f4.2,8x,f4.2,4x,f4.2,2x,f5.3,2x,f5.2)') name, age1, mass1, age2, mass2, tobs, lobs
+ 2500	continue
+
+ 1001	write(6,'("Can\'t find input file of name, log T, and log L")')
+	goto 9000
+
+ 1000	write(6,'("Can\'t find Alex isochrone file")')
+	goto 9000
+
+ 1005	write(6,'("Can\'t find Swenson isochrone file")')
+	goto 9000
+
+ 1010	write(6,'("Error reading T and L from AlexCM.iso file, n = ", i2, " k = ", i2)') n, k
+	goto 9000
+
+ 1020	write(6,'("Error reading T and L from swen1.iso file, n = ", i2, " k = ", i2)') n, k
+	goto 9000
+
+ 1025	write(6,'("Format error in line ",i3," of the input file. Note names are necessary and must begin with letters")') ii
+
+ 9000	stop
+	end
