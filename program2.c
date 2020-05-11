@@ -54,17 +54,6 @@
 *
 *       Dereddened observed SED as well as expected stellar SED based on
 *       spectral type, normalized to match at I-band.
-*
-*	Notes:
-*	______
-*
-*       Based on the program bigsed.c by MRM.
-*
-*	By:
-*	___
-*
-*       ALM 6-20-2005     Steward Observatory
-*
 *******************************************************************************/
 
 #include <stdio.h>
