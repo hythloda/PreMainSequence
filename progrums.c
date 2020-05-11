@@ -60,11 +60,6 @@
 *
 *       Based on the program bigsed.c by MRM.
 *
-*	By:
-*	___
-*
-*       ALM 6-20-2005     Steward Observatory
-*
 *******************************************************************************/
 
 #include <stdio.h>
